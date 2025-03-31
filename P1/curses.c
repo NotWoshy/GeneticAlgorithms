@@ -5,72 +5,77 @@
 #include <time.h>
 #include "functions.h"
 
-void applyAlgorithm(int opc, int fun, int rep, int range, int tests);
+void applyAlgorithm(int opc, int fun, int rep,int bitRange, int range, int tests, float crossChance, float mutateChance);
 
 int main() {
-    initscr();
-    cbreak();
-    keypad(stdscr, TRUE);
-    noecho();
-    curs_set(0);
-    init_colors();
-    srand(time(NULL));
 
-    int fun, rep, opc, range;
+    srand(time(NULL));
+    initCurses();
+
+    int fun, rep, opc, range, bitRange;
+    float crossChance, mutateChance;
     int tests = 0;
 
     char *funOptions[] = {"x^2", "ABS | x-5 /2 +sen(x) |", "sen(x) / x+1"};
     char *repOptions[] = {"Binaria", "Gray"};
     char *evalOptions[] = {"Maximizar", "Minimizar"};
-    char *rangeOptions[] = {"1", "2", "3", "4", "5", "6", "7"};
+    char *algorithmOptions[] = {"Estacionario", "Generacional"}; //Para uso futuro
 
     fun = selectMenu(funOptions, 3, 1);
     rep = selectMenu(repOptions, 2, 2);
     opc = selectMenu(evalOptions, 2, 3);
-    range = selectMenu(rangeOptions, 7, 4);
+    range = rangeMenu();
+    bitRange = bitCounter(range);
     tests = testsMenu();
+    crossChance = crossMenu();
+    mutateChance = mutateMenu();
     clear();
-    
-    applyAlgorithm(opc, fun, rep, range, tests);
-    
+
+    applyAlgorithm(opc, fun, rep,range, bitRange, tests, crossChance, mutateChance);
+
     printw("\n");
     printw("Presiona cualquier tecla para salir...");
     getch();
     endwin();
     return 0;
 }
-
-void applyAlgorithm(int opc, int fun, int rep, int range, int tests) {
+void applyAlgorithm(int opc, int fun, int rep,int bitRange, int range, int tests, float crossChance, float mutateChance) {
 
     float** matrix;
-    int** binMatrix, **decMatrix;
-    float* evalMatrix;
+    int** binMatrix, **decMatrix, **selectedChromosomes;
+    int selectedIndex[2];
+    float* evalMatrix, *fitnessValues;
     float max, min;
     
     matrix = genMatrix(tests, range); // Genera matriz inicial
     binMatrix = genBinaryMatrix(matrix, tests, range, rep); //Genera matriz con binarios
     decMatrix = genDecimalMatrix(binMatrix, tests, range, rep); // Convierte a Decimal
+    dataCorrection(matrix,binMatrix,decMatrix,range,bitRange,tests,rep);
     evalMatrix = evalFunction(decMatrix, tests, fun); // Evalua funcion
-
+    
     printw("\n");
 
-    showData("Matriz Generada", tests, range, matrix, NULL, NULL, NULL, 0, 0);
-    showData("Interpretando Posibilidades | Conversión a Binario o Gray", tests, range, NULL, binMatrix, NULL, NULL, 0, 0);
-    showData("Convirtiendo a Decimal", tests, range, NULL, NULL, decMatrix, evalMatrix, 0, 0);
-    showData("Resultado de la Evaluación", tests, range, NULL, NULL, decMatrix, evalMatrix, findMaxMin(evalMatrix, tests, opc), opc);
+    initialGeneration(matrix, binMatrix, decMatrix, evalMatrix, tests, range, fun, rep, opc);
 
-    saveResult(evalMatrix, tests);
-    graph(fun);
+    selectedChromosomes = selectChromosomes(evalMatrix, binMatrix, tests, opc, range, selectedIndex); // Selecciona individuos para cruzar
+    fitnessValues = applyFitnessFun(selectedChromosomes, range, crossChance, decMatrix, selectedIndex, randomNumber()); // Aplica la función de fitness y determina si hay cruza en la generación
 
+    geneticAlgorithm(tests, range, decMatrix, evalMatrix, findMaxMin(evalMatrix, tests, opc), opc, crossChance, mutateChance, selectedChromosomes, fitnessValues, selectedIndex);
+    
+    
     for(int i = 0; i < tests; i++) {
         free(matrix[i]);
         free(binMatrix[i]);
         free(decMatrix[i]);
     }
+    if (fitnessValues) 
+        free(fitnessValues);    
     free(matrix);
     free(binMatrix);
     free(decMatrix);
     free(evalMatrix);
-
+    free(selectedChromosomes[0]);
+    free(selectedChromosomes[1]);
+    free(selectedChromosomes);
     return;
 }
