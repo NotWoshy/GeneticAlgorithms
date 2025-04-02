@@ -487,7 +487,7 @@ float crossMenu() {
 
 float mutateMenu() {
     float mutationProb = 0;
-    char desp[3] = {0};
+    char desp[10] = {0};
     clear();
     printTitle();
     printText(7);
